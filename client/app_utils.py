@@ -4,7 +4,49 @@ from email.MIMEText import MIMEText
 import urllib2
 import re
 from pytz import timezone
+import os
+import sys
+import requests
+import random
+import yaml
 
+def getProfile():
+    profile = yaml.safe_load(open("~/.jasper/profile.yml", "r"))
+    return profile
+
+def respond(phrase):
+    fname = getFirstname(getProfile())
+    lname = getLastname(getProfile())
+    suffix = [".", ".", " " + fname, " Mr. " + lname]
+    end = random.choice(suffix) 
+
+    if re.search(r'\b(thanks?( you)?|good|nice)\b', phrase, re.IGNORECASE):
+        filename = "static/text/Closure.txt"
+    elif re.search(r'\b(bad|no)\b', phrase, re.IGNORECASE):
+	filename = "static/text/Dismissal.txt"
+    else:
+        filename = "static/text/Blank.txt"
+        end = ""
+
+    return getResponse(filename) + end
+ 
+def getResponse(filename):
+    responses = [line.strip() for line in open(filename, "r")]
+
+    response = random.choice(responses)
+    return response
+
+def getFirstname(profile):
+    try:
+	return profile['first_name']
+    except:
+	return None
+
+def getLastname(profile):
+    try:
+	return profile['last_name']
+    except:
+	return None
 
 def sendEmail(SUBJECT, BODY, TO, FROM, SENDER, PASSWORD, SMTP_SERVER):
     """Sends an HTML email."""

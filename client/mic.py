@@ -9,7 +9,8 @@ import audioop
 import pyaudio
 import alteration
 import jasperpath
-
+import app_utils
+import random
 
 class Mic:
 
@@ -183,6 +184,75 @@ class Mic:
 
         return (False, transcribed)
 
+    def MactiveListen(self, THRESHOLD=None, LISTEN=True, MUSIC=False):
+        """
+            Records until a second of silence or times out after 12 seconds
+
+            Returns a list of the matching options or None
+        """
+
+	options = self.MactiveListenToAllOptions(THRESHOLD, LISTEN, MUSIC)
+	if options:
+	    return options[0]
+
+    def MactiveListenToAllOptions(self, THRESHOLD=None, LISTEN=True, MUSIC=False):
+        """
+            Records until a second of silence or times out after 12 seconds
+
+            Returns a list of the matching options or None
+        """
+
+        RATE = 16000
+        CHUNK = 1024
+        LISTEN_TIME = 12
+
+        # check if no threshold provided
+        if THRESHOLD is None:
+            THRESHOLD = self.fetchThreshold()
+
+        # prepare recording stream
+        stream = self._audio.open(format=pyaudio.paInt16,
+                                  channels=1,
+                                  rate=RATE,
+                                  input=True,
+                                  frames_per_buffer=CHUNK)
+
+        frames = []
+        # increasing the range # results in longer pause after command
+        # generation
+        lastN = [THRESHOLD * 1.2 for i in range(45)]
+
+        for i in range(0, RATE / CHUNK * LISTEN_TIME):
+
+            data = stream.read(CHUNK)
+            frames.append(data)
+            score = self.getScore(data)
+
+            lastN.pop(0)
+            lastN.append(score)
+
+            average = sum(lastN) / float(len(lastN))
+
+            # TODO: 0.8 should not be a MAGIC NUMBER!
+            if average < THRESHOLD * 0.8:
+                break
+
+        # self.speaker.play(jasperpath.data('audio', 'beep_lo.wav'))
+
+        # save the audio data
+        stream.stop_stream()
+        stream.close()
+
+        with tempfile.SpooledTemporaryFile(mode='w+b') as f:
+            wav_fp = wave.open(f, 'wb')
+            wav_fp.setnchannels(1)
+            wav_fp.setsampwidth(pyaudio.get_sample_size(pyaudio.paInt16))
+            wav_fp.setframerate(RATE)
+            wav_fp.writeframes(''.join(frames))
+            wav_fp.close()
+            f.seek(0)
+            return self.active_stt_engine.transcribe(f)
+
     def activeListen(self, THRESHOLD=None, LISTEN=True, MUSIC=False):
         """
             Records until a second of silence or times out after 12 seconds
@@ -210,8 +280,17 @@ class Mic:
         if THRESHOLD is None:
             THRESHOLD = self.fetchThreshold()
 
-        self.speaker.play(jasperpath.data('audio', 'beep_hi.wav'))
+        # self.speaker.play(jasperpath.data('audio', 'beep_hi.wav'))
 
+	fname = "Thomas"
+	lname = "Hagen"
+	mess = app_utils.getResponse("static/text/Attention.txt")
+	end = ["?", "?",  ", " + fname + "?", ", Mr. " + lname + "?"]
+	age = random.choice(end)
+
+	message = mess + age
+
+	self.say(message)
         # prepare recording stream
         stream = self._audio.open(format=pyaudio.paInt16,
                                   channels=1,
@@ -222,7 +301,7 @@ class Mic:
         frames = []
         # increasing the range # results in longer pause after command
         # generation
-        lastN = [THRESHOLD * 1.2 for i in range(30)]
+        lastN = [THRESHOLD * 1.2 for i in range(45)]
 
         for i in range(0, RATE / CHUNK * LISTEN_TIME):
 
@@ -239,7 +318,7 @@ class Mic:
             if average < THRESHOLD * 0.8:
                 break
 
-        self.speaker.play(jasperpath.data('audio', 'beep_lo.wav'))
+        # self.speaker.play(jasperpath.data('audio', 'beep_lo.wav'))
 
         # save the audio data
         stream.stop_stream()
